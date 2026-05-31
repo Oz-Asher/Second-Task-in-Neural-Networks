@@ -1,7 +1,8 @@
-from model_architecture import Model, InitialMLP
+from model_architecture import Model
 import torch
 import torch.nn as nn
 
+#Overfitting analysis
 class LargerMLP(nn.Module):
     def __init__(self):
         super().__init__()
@@ -28,11 +29,10 @@ trainer.plot_learning_curves(*results[:4])
 
 print('////////////////////////////////////////////////////////////////////////////////////////////////////')
 
-print('Adding early stop')
+print('Adding early stop (Patience = 3 epochs)')
 trainer = Model(LargerMLP())
-results = trainer.evaluate(early_stop_loss=1) # The model would run until a train loss of 1 
+results = trainer.evaluate(patience=3) # Will stop if test loss stagnates
 trainer.plot_learning_curves(*results[:4])
-
 
 print('////////////////////////////////////////////////////////////////////////////////////////////////////')
 

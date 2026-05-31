@@ -1,7 +1,6 @@
 from model_architecture import Model, InitialCNN
 
-
-
+#CNN Debugging
 def run_model(model):
     trainer = Model(model)
     results = trainer.evaluate()

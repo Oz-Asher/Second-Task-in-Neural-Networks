@@ -1,6 +1,7 @@
 from model_architecture import Model, InitialCNN, InitialMLP
 import matplotlib.pyplot as plt
 
+#MLP Comparison
 # =========================================================
 # VISUALIZE CNN FILTERS + MLP WEIGHTS
 # =========================================================
@@ -76,22 +77,34 @@ def visualize_mlp_weights(model, max_neurons=16):
 
 
 
-print('Model CNN:')
-trainer = Model(InitialCNN())
-results = trainer.evaluate()
-trainer.plot_learning_curves(*results[:4])
-trainer.plot_gradients(results[4])
-trainer.show_samples()
-visualize_cnn_filters(trainer.model)
+# =========================================================
+# 1. TRAIN AND EVALUATE CNN
+# =========================================================
+print('--- Training Improved CNN ---')
+cnn_trainer = Model(InitialCNN(improvement=True))
+cnn_results = cnn_trainer.evaluate()
 
-print('////////////////////////////////////////////////////////////////////////////////////////////////////')
+# Print the report to get parameters, speed, and memory for your PDF
+cnn_trainer.print_model_report(cnn_results[-1])
 
-print('Model MLP:')
-trainer = Model(InitialMLP())
-results = trainer.evaluate()
-trainer.plot_learning_curves(*results[:4])
-trainer.plot_gradients(results[4])
-trainer.show_samples()
-visualize_mlp_weights(trainer.model)
+# =========================================================
+# 2. TRAIN AND EVALUATE MLP
+# =========================================================
+print('\n--- Training MLP ---')
+mlp_trainer = Model(InitialMLP())
+mlp_results = mlp_trainer.evaluate()
 
+# Print the report to compare against the CNN
+mlp_trainer.print_model_report(mlp_results[-1])
+mlp_trainer.plot_learning_curves(*mlp_results[:4])
 
+# =========================================================
+# 3. VISUALIZE AND COMPARE WEIGHTS
+# =========================================================
+print('\n--- Visualization of Weights ---')
+
+print('MLP First Layer Weights (fc1):')
+visualize_mlp_weights(mlp_trainer.model)
+
+print('CNN First Layer Filters (conv1):')
+visualize_cnn_filters(cnn_trainer.model) # Now properly passing the CNN model!

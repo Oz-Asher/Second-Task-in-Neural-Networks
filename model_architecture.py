@@ -1,3 +1,4 @@
+#model_architecture
 
 import sys
 # pip install torchvision
@@ -29,7 +30,7 @@ class InitialCNN(nn.Module):
 
         self.conv1 = nn.Conv2d(3, 32, 3, padding=1)
         if self.improvement:
-            self.bn1 = nn.BatchNorm2d(32) 
+            self.bn1 = nn.BatchNorm2d(32)
         self.conv2 = nn.Conv2d(32, 64, 3, padding=1)
         self.conv3 = nn.Conv2d(64, 128, 3, padding=1)
         self.conv4 = nn.Conv2d(128, 256, 3, padding=1)
@@ -39,21 +40,47 @@ class InitialCNN(nn.Module):
 
     def forward(self, x):
 
-        x = torch.sigmoid(self.conv1(x))
+        # --- LAYER 1 ---
+        if self.improvement:
+            x = self.bn1(self.conv1(x))
+            x = torch.relu(x)
+        else:
+            x = torch.sigmoid(self.conv1(x))
+
         x = F.max_pool2d(x, 2)
 
-        x = torch.sigmoid(self.conv2(x))
+        # --- LAYER 2 ---
+        if self.improvement:
+             x = torch.relu(self.conv2(x))
+        else:
+             x = torch.sigmoid(self.conv2(x))
+
         x = F.max_pool2d(x, 2)
 
-        x = torch.sigmoid(self.conv3(x))
+        # --- LAYER 3 ---
+        if self.improvement:
+             x = torch.relu(self.conv3(x))
+        else:
+             x = torch.sigmoid(self.conv3(x))
+
         x = F.max_pool2d(x, 2)
 
-        x = torch.sigmoid(self.conv4(x))
+        # --- LAYER 4 ---
+        if self.improvement:
+             x = torch.relu(self.conv4(x))
+        else:
+             x = torch.sigmoid(self.conv4(x))
+
         x = F.max_pool2d(x, 2)
 
         x = x.view(x.size(0), -1)
 
-        x = torch.sigmoid(self.fc1(x))
+        # --- FC LAYER 1 ---
+        if self.improvement:
+             x = torch.relu(self.fc1(x))
+        else:
+             x = torch.sigmoid(self.fc1(x))
+
         x = self.fc2(x)
 
         return x
@@ -81,7 +108,7 @@ class Model:
 
     def __init__(self, model, augmentation=False):
 
-        
+
         # -------------------------
         # Device + Seed
         # -------------------------
@@ -104,7 +131,7 @@ class Model:
         # Data
         # -------------------------
         self.augmentation = augmentation
-        
+
         if augmentation is False:
             transform = transforms.Compose([
                 transforms.ToTensor(),
@@ -141,9 +168,9 @@ class Model:
         )
 
 
-        # # FAST VERSION (small subset)
-        # train_dataset = torch.utils.data.Subset(train_dataset, range(25))
-        # test_dataset = torch.utils.data.Subset(test_dataset, range(5))
+        # FAST VERSION (small subset)
+        train_dataset = torch.utils.data.Subset(train_dataset, range(25))
+        test_dataset = torch.utils.data.Subset(test_dataset, range(5))
 
         self.train_dataset = train_dataset
         self.test_dataset = test_dataset
@@ -249,7 +276,7 @@ class Model:
     # =========================================================
     # FULL TRAINING LOOP
     # =========================================================
-    def evaluate(self, epochs=15, early_stop_loss=False, weight_decay=0):
+    def evaluate(self, epochs=15, patience=False, weight_decay=0):
 
         train_losses, test_losses = [], []
         train_accs, test_accs = [], []
@@ -257,13 +284,16 @@ class Model:
         grad_history = {}
         epochs_durations = []
 
+        # --- Early Stopping Trackers ---
+        best_test_loss = float('inf')
+        epochs_without_improvement = 0
+
         # -------------------------
         # Loss + Optimizer
         # -------------------------
         self.criterion = nn.CrossEntropyLoss()
-
         self.optimizer = optim.Adam(self.model.parameters(), lr=0.001, weight_decay=weight_decay)
-  
+
         for epoch in range(epochs):
 
             start_time = time.time()
@@ -275,7 +305,7 @@ class Model:
 
             test_loss, test_acc = self.test()
 
-            grad_history = grads  # last epoch only (your original logic)
+            grad_history = grads
 
             train_losses.append(train_loss)
             test_losses.append(test_loss)
@@ -285,15 +315,23 @@ class Model:
             print(f"Epoch {epoch+1}/{epochs} | Time {training_time:.2f} sec")
             print(f"Train Loss: {train_loss:.4f} | Train Accuracy: {train_acc:.2f}%")
             print(f"Test Loss: {test_loss:.4f} | Test Accuracy: {test_acc:.2f}%")
-            print("-"*40)
+            print("-" * 40)
 
-            if early_stop_loss is not False:
-                if train_loss < early_stop_loss:
-                    print(f'Early stop loss at epoch {epoch+1}')
+            # --- TRUE EARLY STOPPING LOGIC ---
+            if patience is not False:
+                if test_loss < best_test_loss:
+                    best_test_loss = test_loss
+                    epochs_without_improvement = 0 # Reset counter if we improve
+                else:
+                    epochs_without_improvement += 1 # Increment if we got worse
+
+                # If we haven't improved in 'patience' number of epochs, stop
+                if epochs_without_improvement >= patience:
+                    print(f"🛑 EARLY STOPPING TRIGGERED at Epoch {epoch+1}!")
+                    print(f"Test loss has not improved for {patience} epochs.")
                     break
 
-
-        return train_losses, test_losses, train_accs, test_accs, grad_history,epochs_durations
+        return train_losses, test_losses, train_accs, test_accs, grad_history, epochs_durations
 
     # =========================================================
     # VISUALIZATION
@@ -458,8 +496,3 @@ class Model:
         plt.ylabel("True Label")
         plt.title("Confusion Matrix (CIFAR-10)")
         plt.show()
-
-
-
-
-
