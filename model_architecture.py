@@ -169,8 +169,8 @@ class Model:
 
 
         # FAST VERSION (small subset)
-        train_dataset = torch.utils.data.Subset(train_dataset, range(25))
-        test_dataset = torch.utils.data.Subset(test_dataset, range(5))
+        # train_dataset = torch.utils.data.Subset(train_dataset, range(25))
+        # test_dataset = torch.utils.data.Subset(test_dataset, range(5))
 
         self.train_dataset = train_dataset
         self.test_dataset = test_dataset
