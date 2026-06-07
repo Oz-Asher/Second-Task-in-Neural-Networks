@@ -276,7 +276,7 @@ class Model:
     # =========================================================
     # FULL TRAINING LOOP
     # =========================================================
-    def evaluate(self, epochs=15, patience=False, weight_decay=0):
+    def evaluate(self, epochs=15, patience=False, lr=0.001, weight_decay=0):
 
         train_losses, test_losses = [], []
         train_accs, test_accs = [], []
@@ -292,7 +292,7 @@ class Model:
         # Loss + Optimizer
         # -------------------------
         self.criterion = nn.CrossEntropyLoss()
-        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001, weight_decay=weight_decay)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=lr, weight_decay=weight_decay)
 
         for epoch in range(epochs):
 
