@@ -202,7 +202,9 @@ class Model:
         correct = 0
         total = 0
 
-        gradient_norms = {}
+        # Store sums so we can compute average gradient per epoch
+        gradient_sums = {}
+        gradient_counts = {}
 
         for images, labels in self.train_loader:
 
@@ -216,16 +218,19 @@ class Model:
 
             loss.backward()
 
-            # gradients
+            # Collect gradient norms
             for name, param in self.model.named_parameters():
+
                 if param.grad is not None:
 
                     grad_norm = param.grad.norm().item()
 
-                    if name not in gradient_norms:
-                        gradient_norms[name] = []
+                    if name not in gradient_sums:
+                        gradient_sums[name] = 0
+                        gradient_counts[name] = 0
 
-                    gradient_norms[name].append(grad_norm)
+                    gradient_sums[name] += grad_norm
+                    gradient_counts[name] += 1
 
             self.optimizer.step()
 
@@ -238,9 +243,13 @@ class Model:
         acc = 100 * correct / total
         avg_loss = running_loss / len(self.train_loader)
 
+        # Average gradient norm for each layer during this epoch
+        epoch_gradients = {
+            name: gradient_sums[name] / gradient_counts[name]
+            for name in gradient_sums
+        }
 
-        return avg_loss, acc, gradient_norms
-
+        return avg_loss, acc, epoch_gradients
     # =========================================================
     # TEST
     # =========================================================
@@ -292,12 +301,18 @@ class Model:
         # Loss + Optimizer
         # -------------------------
         self.criterion = nn.CrossEntropyLoss()
-        self.optimizer = optim.Adam(self.model.parameters(), lr=lr, weight_decay=weight_decay)
+        self.optimizer = optim.Adam(
+            self.model.parameters(),
+            lr=lr,
+            weight_decay=weight_decay
+        )
 
         for epoch in range(epochs):
 
             start_time = time.time()
+
             train_loss, train_acc, grads = self.train()
+
             end_time = time.time()
 
             training_time = end_time - start_time
@@ -305,7 +320,13 @@ class Model:
 
             test_loss, test_acc = self.test()
 
-            grad_history = grads
+            # Store gradient history across epochs
+            for name, grad in grads.items():
+
+                if name not in grad_history:
+                    grad_history[name] = []
+
+                grad_history[name].append(grad)
 
             train_losses.append(train_loss)
             test_losses.append(test_loss)
@@ -319,20 +340,26 @@ class Model:
 
             # --- TRUE EARLY STOPPING LOGIC ---
             if patience is not False:
+
                 if test_loss < best_test_loss:
                     best_test_loss = test_loss
-                    epochs_without_improvement = 0 # Reset counter if we improve
+                    epochs_without_improvement = 0
                 else:
-                    epochs_without_improvement += 1 # Increment if we got worse
+                    epochs_without_improvement += 1
 
-                # If we haven't improved in 'patience' number of epochs, stop
                 if epochs_without_improvement >= patience:
                     print(f"🛑 EARLY STOPPING TRIGGERED at Epoch {epoch+1}!")
                     print(f"Test loss has not improved for {patience} epochs.")
                     break
 
-        return train_losses, test_losses, train_accs, test_accs, grad_history, epochs_durations
-
+        return (
+            train_losses,
+            test_losses,
+            train_accs,
+            test_accs,
+            grad_history,
+            epochs_durations
+        )
     # =========================================================
     # VISUALIZATION
     # =========================================================
@@ -372,11 +399,11 @@ class Model:
     def plot_gradients(self, grad_history):
 
         plt.figure(figsize=(10,6))
-
         for name, vals in grad_history.items():
-            plt.plot(vals, label=name)
+            epochs = range(1, len(vals) + 1)
+            plt.plot(epochs, vals, label=name)
 
-        plt.xlabel("Batch / Iteration Step")   # x-axis
+        plt.xlabel("Epochs")   # x-axis
         plt.ylabel("Gradient Norm")           # y-axis
         plt.title("Gradient Magnitude per Layer")
         plt.legend()
